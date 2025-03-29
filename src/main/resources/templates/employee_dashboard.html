@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Employee Dashboard</title>
+</head>
+
+<body style="font-family: Arial, sans-serif; background-color: #f2f2f2; margin:0; padding: 0;">
+
+	<div style="display: flex; justify-content: space-between; align-items: center; background-color: #34495e; padding: 10px;">
+	    <h2 style="margin: 0; color: white;">Employee Dashboard</h2>
+	    <button style="background-color: #34495e; color: white; border: none; border-radius: 5px; cursor: pointer;">
+	        <a th:href="@{/logout}" style="color: #ffffff; text-decoration: none; padding: 8px 16px;">Logout</a>
+	    </button>
+	</div>
+
+
+    <h2 style="color: #34495e; text-align: center;padding-top: 110px;">Add New Expense</h2>
+
+    
+    <form id="expenseForm" style="background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.2); max-width: 500px; margin: auto;">
+        <input type="text" name="expenseName" placeholder="Expense Name" required style="padding: 10px; width: 95%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"><br>
+
+        <input type="number" id="amount" name="amount" placeholder="Amount" required style="padding: 10px; width: 95%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"><br>
+
+        <select id="department" name="department" required style="padding: 10px; width: 100%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;">
+            <option value="">Select Department</option>
+            <option value="IT">IT</option>
+            <option value="CS">CS</option>
+            <option value="Electronics">Electronics</option>
+        </select><br>
+
+        <select name="expenseType" required style="padding: 10px; width: 100%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;">
+            <option value="Hybrid">Hybrid</option>
+            <option value="Essential">Essential</option>
+            <option value="Discretionary">Discretionary</option>
+        </select><br>
+
+        <input type="date" name="date" required style="padding: 10px; width: 95%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"><br>
+
+        <input type="text" name="receipt" placeholder="Receipt" style="padding: 10px; width: 95%; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px;"><br>
+
+        <button type="submit" style="background-color: #34495e; color: white; padding: 12px 20px; border: none; border-radius: 5px; cursor: pointer;">Add Expense</button>
+    </form>
+
+    <h2 style="color: #34495e; text-align: center; margin-top: 50px;">Expense List</h2>
+    <table id="expenseTable" style="width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+        <tr style="background-color: #34495e; color: #fff;">
+            <th style="padding: 12px; border: 1px solid #ccc;">Expense Name</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Amount</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Department</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Type</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Date</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Status</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Receipt</th>
+            <th style="padding: 12px; border: 1px solid #ccc;">Action</th>
+        </tr>
+    </table>
+
+    <script>
+        function fetchRemainingBudget() {
+            const department = document.getElementById("department").value;
+            if (!department) {
+                document.getElementById("remainingBudget").innerText = "";
+                return;
+            }
+
+            fetch(`/budget/remaining/${department}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById("remainingBudget").innerText = data.remainingBudget;
+                })
+                .catch(() => document.getElementById("remainingBudget").innerText = "Error loading budget");
+        }
+
+        function fetchExpenses() {
+            fetch('/employee/expenses')
+                .then(res => res.json())
+                .then(data => {
+                    const table = document.getElementById("expenseTable");
+                    table.innerHTML = `
+                        <tr style="background-color: #34495e; color: #fff;">
+                            <th>Expense Name</th>
+                            <th>Amount</th>
+                            <th>Department</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Receipt</th>
+                            <th>Action</th>
+                        </tr>`;
+                    data.forEach(exp => {
+                        table.innerHTML += `
+                            <tr>
+                                <td style="border:2px solid #000">${exp.expenseName}</td>
+                                <td style="border:2px solid #000">${exp.amount}</td>
+                                <td style="border:2px solid #000">${exp.department || '-'}</td>
+                                <td style="border:2px solid #000">${exp.expenseType || '-'}</td>
+                                <td style="border:2px solid #000">${exp.date || '-'}</td>
+                                <td style="border:2px solid #000">${exp.status || '-'}</td>
+                                <td style="border:2px solid #000">${exp.receipt || '-'}</td>
+                                <td style="border:2px solid #000">
+                                    ${exp.status === 'Pending' ? 
+                                        `<button onclick="deleteExpense(${exp.id})" style="background-color: #e74c3c; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer;">Delete</button>` 
+                                        : 'N/A'}
+                                </td>
+                            </tr>`;
+                    });
+                });
+        }
+
+        function deleteExpense(id) {
+            fetch('/employee/delete-expense/' + id, { method: 'DELETE' })
+                .then(res => res.text())
+                .then(msg => {
+                    alert(msg);
+                    fetchExpenses();
+                });
+        }
+
+        document.getElementById('expenseForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const jsonData = {};
+            formData.forEach((value, key) => jsonData[key] = value);
+
+            const remainingBudget = parseFloat(document.getElementById("remainingBudget").innerText);
+            const enteredAmount = parseFloat(jsonData.amount);
+
+            if (enteredAmount > remainingBudget) {
+                alert("Expense amount exceeded! Remaining budget: " + remainingBudget);
+                return;
+            }
+
+            fetch('/employee/add-expense', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(jsonData)
+            })
+            .then(response => response.text())
+            .then(msg => {
+                alert(msg);
+                fetchExpenses();
+                e.target.reset();
+                fetchRemainingBudget();
+            });
+        });
+
+        document.getElementById("department").addEventListener("change", fetchRemainingBudget);
+        fetchExpenses();
+    </script>
+	<!-- Remaining Budget Display -->
+	    <span id="remainingBudget"></span>
+	    
+
+</body>
+</html>
