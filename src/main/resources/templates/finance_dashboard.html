@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Finance Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f2f2f2; padding: 30px; }
+        h2, h3 { color: #34495e; text-align: center; }
+        a { background-color: #34495e; color: #fff; padding: 10px 18px; text-decoration: none; border-radius: 5px; float: right; }
+        table { width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        th { background-color: #34495e; color: #fff; padding: 12px; border: 1px solid #ccc; }
+        td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+        button { padding: 5px 10px; margin: 2px; cursor: pointer; }
+        .paid { background-color: #2ecc71; color: white; border: none; }
+        .rejected { background-color: #e74c3c; color: white; border: none; }
+    </style>
+</head>
+
+<body style="margin: 0; padding: 0;">
+
+	<div style="display: flex; justify-content: space-between; align-items: center; background-color: #34495e; padding-left: 10px;">
+			    <h2 style="margin: 0; color: white;">Finance Dashboard</h2>
+			    <button style="background-color: #34495e; color: white; border: none; border-radius: 5px; cursor: pointer;">
+			        <a th:href="@{/logout}" style="color: #ffffff; text-decoration: none; padding: 8px 16px;">Logout</a>
+			    </button>
+			</div>
+<!-- Employee Expenses -->
+<h3>Employee Expenses</h3>
+<table id="employeeExpenseTable">
+    <tr>
+        <th>Expense Name</th><th>Amount</th><th>Department</th>
+        <th>Type</th><th>Date</th><th>Status</th><th>Receipt</th><th>Action</th>
+    </tr>
+</table>
+
+<!-- Manager Expenses -->
+<h3>Manager Expenses</h3>
+<table id="managerExpenseTable">
+    <tr>
+        <th>Expense Name</th><th>Amount</th><th>Department</th>
+        <th>Type</th><th>Date</th><th>Status</th><th>Receipt</th><th>Action</th>
+    </tr>
+</table>
+
+<!-- Department Budgets -->
+<h3>Department Budgets</h3>
+<table id="budgetTable">
+    <tr>
+        <th>Department</th><th>Amount</th><th>Start Date</th><th>End Date</th><th>Remaining Budget</th>
+    </tr>
+</table>
+
+<h3>Add New Budget</h3>
+<form onsubmit="addBudget(event)">
+    <input type="text" id="dept" placeholder="Department" required>
+    <input type="number" id="amount" placeholder="Amount" required>
+    <input type="date" id="startDate" required>
+    <input type="date" id="endDate" required>
+    <input type="number" id="remainingBudget" placeholder="Remaining Budget" required>
+    <button type="submit">Add Budget</button>
+</form>
+
+<script>
+    // Fetch Employee Expenses
+    function fetchEmployeeExpenses() {
+        fetch('/financeTeam/employeeExpenses')
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById("employeeExpenseTable");
+                table.innerHTML = `
+                    <tr>
+                        <th>Expense Name</th><th>Amount</th><th>Department</th>
+                        <th>Type</th><th>Date</th><th>Status</th><th>Receipt</th><th>Action</th>
+                    </tr>`;
+                data.forEach(exp => {
+                    table.innerHTML += `
+                        <tr>
+                            <td>${exp.expenseName}</td>
+                            <td>${exp.amount}</td>
+                            <td>${exp.department}</td>
+                            <td>${exp.expenseType}</td>
+                            <td>${exp.date}</td>
+                            <td id="emp-status-${exp.id}">${exp.status}</td>
+                            <td>${exp.receipt}</td>
+                            <td>
+                                ${exp.status === 'Approved' ? `<button class="paid" onclick="markEmployeePaid(${exp.id})">Paid</button>` : ''}
+                            </td>
+                        </tr>`;
+                });
+            });
+    }
+
+    // Fetch Manager Expenses
+    function fetchManagerExpenses() {
+        fetch('/financeTeam/managerExpenses')
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById("managerExpenseTable");
+                table.innerHTML = `
+                    <tr>
+                        <th>Expense Name</th><th>Amount</th><th>Department</th>
+                        <th>Type</th><th>Date</th><th>Status</th><th>Receipt</th><th>Action</th>
+                    </tr>`;
+                data.forEach(exp => {
+                    table.innerHTML += `
+                        <tr>
+                            <td>${exp.expenseName}</td>
+                            <td>${exp.amount}</td>
+                            <td>${exp.department}</td>
+                            <td>${exp.expenseType}</td>
+                            <td>${exp.date}</td>
+                            <td id="status-${exp.id}">${exp.status}</td>
+                            <td>${exp.receipt}</td>
+                            <td>
+                                ${exp.status === 'Pending' ? `
+                                    <button class="paid" onclick="updateManagerStatus(${exp.id}, 'Paid')">Paid</button>
+                                    <button class="rejected" onclick="updateManagerStatus(${exp.id}, 'Rejected')">Reject</button>
+                                ` : exp.status}
+                            </td>
+                        </tr>`;
+                });
+            });
+    }
+
+    //  Update Employee Expense to Paid + Refresh Budgets
+    function markEmployeePaid(expenseId) {
+        fetch(`/financeTeam/updateEmployeeExpenseStatus/${expenseId}?status=Paid`, { method: 'POST' })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById(`emp-status-${expenseId}`).innerText = 'Paid';
+                    fetchEmployeeExpenses(); // Refresh employee expenses
+                    fetchBudgets(); // Refresh budgets to update remaining_budget
+                } else {
+                    alert("Failed to update employee status!");
+                }
+            });
+    }
+
+    // Update Manager Expense Status + Refresh Budgets
+    function updateManagerStatus(expenseId, status) {
+        fetch(`/financeTeam/updateManagerExpenseStatus/${expenseId}?status=${status}`, { method: 'POST' })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById(`status-${expenseId}`).innerText = status;
+                    fetchManagerExpenses(); // Refresh manager expenses
+                    fetchBudgets(); // Refresh budgets to update remaining_budget
+                } else {
+                    alert("Failed to update manager status!");
+                }
+            });
+    }
+
+    //  Fetch Budgets
+    function fetchBudgets() {
+        fetch('/financeTeam/budgets')
+            .then(res => res.json())
+            .then(data => {
+                const table = document.getElementById("budgetTable");
+                table.innerHTML = `
+                    <tr>
+                        <th>Department</th><th>Amount</th><th>Start Date</th><th>End Date</th><th>Remaining Budget</th>
+                    </tr>`;
+                data.forEach(b => {
+                    table.innerHTML += `
+                        <tr>
+                            <td>${b.department}</td>
+                            <td>${b.amount}</td>
+                            <td>${b.startDate}</td>
+                            <td>${b.endDate}</td>
+                            <td>${b.remainingBudget}</td>
+                        </tr>`;
+                });
+            });
+    }
+
+    //  Add Budget
+    function addBudget(e) {
+        e.preventDefault();
+        const budget = {
+            department: document.getElementById("dept").value,
+            amount: document.getElementById("amount").value,
+            startDate: document.getElementById("startDate").value,
+            endDate: document.getElementById("endDate").value,
+            remainingBudget: document.getElementById("remainingBudget").value
+        };
+        fetch('/financeTeam/addBudget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(budget)
+        })
+        .then(res => res.text())
+        .then(msg => {
+            alert(msg);
+            fetchBudgets();
+            document.querySelector("form").reset();
+        });
+    }
+
+    fetchBudgets();
+    fetchEmployeeExpenses();
+    fetchManagerExpenses();
+</script>
+
+</body>
+</html>
